@@ -1,0 +1,193 @@
+import customtkinter as ctk
+from tkinter import messagebox
+
+class JanelaMaterial(ctk.CTkToplevel):
+    def __init__(self, master, sistema):
+        super().__init__(master)
+        self.sistema = sistema
+        self.title("Gerenciar Materiais")
+        self.geometry("450x580") 
+        self.transient(master)
+        self.grab_set()
+
+        if not self._configurar_monitor_responsavel():
+            return
+
+        self.abas = ctk.CTkTabview(self, corner_radius=10, fg_color="#1e1e1e")
+        self.abas.pack(fill="both", expand=True, padx=20, pady=(5, 20))
+
+        self.abas.add(" Cadastrar Novo ")
+        self.abas.add(" Atualizar ")
+        self.abas.add(" Deletar ")
+
+        self.aba_cadastrar = self.abas.tab(" Cadastrar Novo ")
+        self.aba_atualizar = self.abas.tab(" Atualizar ")
+        self.aba_deletar = self.abas.tab(" Deletar ")
+
+        self._construir_aba_cadastrar()
+        self._construir_aba_atualizar()
+        self._construir_aba_deletar()
+        self.atualizar_listas_mat()
+
+    def _configurar_monitor_responsavel(self):
+        try:
+            monitores_db = self.sistema.listar_monitores()
+        except Exception as e:
+            messagebox.showerror("Erro", str(e), parent=self)
+            self.destroy()
+            return False
+
+        if not monitores_db:
+            messagebox.showwarning("Aviso", "Cadastre um monitor antes!", parent=self)
+            self.destroy()
+            return False
+
+        lista_monitores = [f"{m[0]} - {m[1]}" for m in monitores_db]
+        frame_monitor = ctk.CTkFrame(self, fg_color="transparent")
+        frame_monitor.pack(pady=(15, 10))
+        
+        ctk.CTkLabel(frame_monitor, text="Monitor:", font=("Segoe UI", 12, "bold"), text_color="#e0e0e0").pack(side="left", padx=10)
+        self.combo_monitor_resp = ctk.CTkComboBox(frame_monitor, values=lista_monitores, state="readonly", width=250)
+        self.combo_monitor_resp.set(lista_monitores[0])
+        self.combo_monitor_resp.pack(side="left", padx=5)
+        return True
+
+    def _construir_aba_cadastrar(self):
+        ctk.CTkLabel(self.aba_cadastrar, text="Cadastrar Novo Material", font=("Segoe UI", 18, "bold"), text_color="#e0e0e0").pack(pady=(15, 15))
+        
+        ctk.CTkLabel(self.aba_cadastrar, text="Nome do Material (ex: Raquete):", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(5, 0))
+        self.entry_nome = ctk.CTkEntry(self.aba_cadastrar, width=320, height=35)
+        self.entry_nome.pack(pady=5)
+        
+        ctk.CTkLabel(self.aba_cadastrar, text="Quantidade Inicial no Estoque:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_quantidade = ctk.CTkEntry(self.aba_cadastrar, width=320, height=35)
+        self.entry_quantidade.pack(pady=5)
+        
+        ctk.CTkLabel(self.aba_cadastrar, text="Observações (Marca, Cor, etc):", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_obs = ctk.CTkEntry(self.aba_cadastrar, width=320, height=35)
+        self.entry_obs.pack(pady=5)
+        
+        ctk.CTkButton(self.aba_cadastrar, text="Salvar Material", command=self.salvar_material, 
+                      fg_color="#27ae60", hover_color="#2ecc71", font=("Segoe UI", 12, "bold"), height=40).pack(pady=25)
+
+    def _construir_aba_atualizar(self):
+        ctk.CTkLabel(self.aba_atualizar, text="Atualizar Material", font=("Segoe UI", 18, "bold"), text_color="#e0e0e0").pack(pady=(15, 15))
+        
+        ctk.CTkLabel(self.aba_atualizar, text="Selecione o Material antigo:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(5, 0))
+        self.combo_atualizar_mat = ctk.CTkComboBox(self.aba_atualizar, state="readonly", width=320, height=35, command=self.preencher_dados_atuais)
+        self.combo_atualizar_mat.pack(pady=5)
+        
+        ctk.CTkLabel(self.aba_atualizar, text="Novo Nome:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_novo_nome_mat = ctk.CTkEntry(self.aba_atualizar, width=320, height=35)
+        self.entry_novo_nome_mat.pack(pady=5)
+        
+        ctk.CTkLabel(self.aba_atualizar, text="Novas Observações:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_novas_obs = ctk.CTkEntry(self.aba_atualizar, width=320, height=35)
+        self.entry_novas_obs.pack(pady=5)
+        
+        ctk.CTkButton(self.aba_atualizar, text="Atualizar Material", command=self.btn_atualizar_mat_click, 
+                      fg_color="#2980b9", hover_color="#3498db", font=("Segoe UI", 12, "bold"), height=40).pack(pady=25)
+
+    def preencher_dados_atuais(self, valor_selecionado=None):
+        selecionado = self.combo_atualizar_mat.get()
+        if not selecionado: return
+        id_mat = int(selecionado.split(" - ")[0])
+        material = next((m for m in self.sistema.listar_materiais() if m[0] == id_mat), None)
+        if material:
+            self.entry_novo_nome_mat.delete(0, 'end')
+            self.entry_novo_nome_mat.insert(0, material[1]) 
+            self.entry_novas_obs.delete(0, 'end')
+            if material[3]: 
+                self.entry_novas_obs.insert(0, material[3])
+
+    def _construir_aba_deletar(self):
+        ctk.CTkLabel(self.aba_deletar, text="Deletar Material", font=("Segoe UI", 18, "bold"), text_color="#e74c3c").pack(pady=(35, 15))
+        
+        ctk.CTkLabel(self.aba_deletar, text="Selecione o Material a ser removido:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.combo_deletar_mat = ctk.CTkComboBox(self.aba_deletar, state="readonly", width=320, height=35)
+        self.combo_deletar_mat.pack(pady=5)
+        
+        ctk.CTkButton(self.aba_deletar, text="🗑️ Deletar Material", command=self.btn_deletar_mat_click, 
+                      fg_color="#c0392b", hover_color="#e74c3c", font=("Segoe UI", 12, "bold"), height=40).pack(pady=35)
+
+    def atualizar_listas_mat(self):
+        sel_atual = self.combo_atualizar_mat.get().split(" - ")[0] if self.combo_atualizar_mat.get() else None
+        sel_del = self.combo_deletar_mat.get().split(" - ")[0] if self.combo_deletar_mat.get() else None
+
+        try:
+            lista_formatada = [f"{m[0]} - {m[1]}" for m in self.sistema.listar_materiais()]
+            if lista_formatada:
+                self.combo_atualizar_mat.configure(values=lista_formatada)
+                self.combo_deletar_mat.configure(values=lista_formatada)
+                
+                idx_atual = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_atual} - ")), 0)
+                idx_del = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_del} - ")), 0)
+                
+                self.combo_atualizar_mat.set(lista_formatada[idx_atual])
+                self.combo_deletar_mat.set(lista_formatada[idx_del])
+                self.preencher_dados_atuais()
+            else:
+                self.combo_atualizar_mat.configure(values=[""])
+                self.combo_deletar_mat.configure(values=[""])
+                self.combo_atualizar_mat.set("")
+                self.combo_deletar_mat.set("")
+                self.entry_novo_nome_mat.delete(0, 'end')
+                self.entry_novas_obs.delete(0, 'end')
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao atualizar: {e}", parent=self)
+
+    def salvar_material(self):
+        nome, quantidade_texto, observacoes = self.entry_nome.get().strip(), self.entry_quantidade.get(), self.entry_obs.get()
+        if not nome or not quantidade_texto:
+            messagebox.showerror("Erro", "Nome e quantidade são obrigatórios!", parent=self)
+            return
+            
+        nomes_existentes = [item.split(" - ", 1)[1].lower() for item in self.combo_atualizar_mat.cget("values") if item]
+        if nome.lower() in nomes_existentes:
+            messagebox.showwarning("Aviso", f"Já existe material '{nome}'!", parent=self)
+            return
+
+        try:
+            quantidade = int(quantidade_texto)
+            if quantidade < 0: return messagebox.showerror("Erro", "Quantidade negativa não permitida!", parent=self)
+        except:
+            return messagebox.showerror("Erro", "A quantidade deve ser um número inteiro!", parent=self)
+            
+        try:
+            id_monitor = int(self.combo_monitor_resp.get().split(" - ")[0])
+            self.sistema.criar_material(nome, quantidade, observacoes, id_monitor=id_monitor)
+            messagebox.showinfo("Sucesso", f"Material '{nome}' cadastrado!", parent=self)
+            self.entry_nome.delete(0, 'end'); self.entry_quantidade.delete(0, 'end'); self.entry_obs.delete(0, 'end')
+            self.atualizar_listas_mat() 
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+
+    def btn_atualizar_mat_click(self):
+        selecionado, novo_nome, novas_obs = self.combo_atualizar_mat.get(), self.entry_novo_nome_mat.get().strip(), self.entry_novas_obs.get()
+        if not selecionado or not novo_nome:
+            return messagebox.showerror("Erro", "Selecione e preencha o novo nome!", parent=self)
+        
+        if novo_nome.lower() != selecionado.split(" - ", 1)[1].lower():
+            if novo_nome.lower() in [item.split(" - ", 1)[1].lower() for item in self.combo_atualizar_mat.cget("values") if item]:
+                return messagebox.showwarning("Aviso", "Já existe outro material com esse nome!", parent=self)
+
+        try:
+            id_mat, id_monitor = int(selecionado.split(" - ")[0]), int(self.combo_monitor_resp.get().split(" - ")[0])
+            self.sistema.atualizar_material(id_mat, novo_nome, novas_obs, id_monitor=id_monitor)
+            messagebox.showinfo("Sucesso", "Material atualizado!", parent=self)
+            self.entry_novo_nome_mat.delete(0, 'end'); self.entry_novas_obs.delete(0, 'end')
+            self.atualizar_listas_mat()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+
+    def btn_deletar_mat_click(self):
+        selecionado = self.combo_deletar_mat.get()
+        if not selecionado: return messagebox.showerror("Erro", "Selecione material!", parent=self)
+        if messagebox.askyesno("Confirmar", f"Deletar:\n{selecionado}?", parent=self):
+            try:
+                id_mat, id_monitor = int(selecionado.split(" - ")[0]), int(self.combo_monitor_resp.get().split(" - ")[0])
+                self.sistema.deletar_material(id_mat, id_monitor=id_monitor)
+                messagebox.showinfo("Sucesso", "Deletado!", parent=self)
+                self.atualizar_listas_mat()
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro: {e}", parent=self)
