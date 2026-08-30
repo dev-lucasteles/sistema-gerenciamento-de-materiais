@@ -1,180 +1,152 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
+import customtkinter as ctk
+from tkinter import messagebox
 from datetime import datetime
 
-class JanelaMovimentacoes(tk.Toplevel):
+class JanelaMovimentacoes(ctk.CTkToplevel):
     def __init__(self, master, sistema):
         super().__init__(master)
         self.sistema = sistema
         self.title("Movimentações de Estoque")
-        self.geometry("450x480") # Altura ajustada
+        self.geometry("450x520") 
         self.transient(master)
         self.grab_set()
 
-        # Configura o seletor de monitor antes de desenhar as abas
         if not self._configurar_monitor_responsavel():
             return
 
-        self.abas = ttk.Notebook(self)
-        self.abas.pack(fill="both", expand=True, padx=10, pady=10)
+        self.abas = ctk.CTkTabview(self, corner_radius=10, fg_color="#1e1e1e")
+        self.abas.pack(fill="both", expand=True, padx=20, pady=(5, 20))
 
-        self.aba_entrada = tk.Frame(self.abas)
-        self.aba_dano = tk.Frame(self.abas)
+        self.abas.add(" Registar Entrada ")
+        self.abas.add(" Registar Dano/Perda ")
 
-        self.abas.add(self.aba_entrada, text="Registar Entrada")
-        self.abas.add(self.aba_dano, text="Registar Dano/Perda")
+        self.aba_entrada = self.abas.tab(" Registar Entrada ")
+        self.aba_dano = self.abas.tab(" Registar Dano/Perda ")
 
         self._construir_aba_entrada()
         self._construir_aba_dano()
         self.atualizar_combos_mov()
-
     
     def _configurar_monitor_responsavel(self):
         try:
             monitores_db = self.sistema.listar_monitores()
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao buscar monitores: {e}", parent=self)
+            messagebox.showerror("Erro", str(e), parent=self)
             self.destroy()
             return False
-
         if not monitores_db:
-            messagebox.showwarning("Aviso", "Você precisa cadastrar pelo menos um monitor antes de realizar movimentações!", parent=self)
+            messagebox.showwarning("Aviso", "Cadastre um monitor antes!", parent=self)
             self.destroy()
             return False
 
         lista_monitores = [f"{m[0]} - {m[1]}" for m in monitores_db]
-        frame_monitor = tk.Frame(self)
-        frame_monitor.pack(pady=10)
-        tk.Label(frame_monitor, text="Monitor Responsável:", font=("Arial", 11, "bold")).pack(side="left", padx=5)
-        self.combo_monitor_resp = ttk.Combobox(frame_monitor, values=lista_monitores, state="readonly", width=20)
-        self.combo_monitor_resp.current(0)
+        frame_monitor = ctk.CTkFrame(self, fg_color="transparent")
+        frame_monitor.pack(pady=(15, 10))
+        
+        ctk.CTkLabel(frame_monitor, text="Monitor:", font=("Segoe UI", 12, "bold"), text_color="#e0e0e0").pack(side="left", padx=10)
+        self.combo_monitor_resp = ctk.CTkComboBox(frame_monitor, values=lista_monitores, state="readonly", width=250)
+        self.combo_monitor_resp.set(lista_monitores[0])
         self.combo_monitor_resp.pack(side="left", padx=5)
         return True
 
     def _construir_aba_entrada(self):
-        tk.Label(self.aba_entrada, text="Registar Entrada de Material", font=("Arial", 14, "bold"), fg="green").pack(pady=15)
-        tk.Label(self.aba_entrada, text="Selecione o Material:").pack()
-        self.combo_mat_ent = ttk.Combobox(self.aba_entrada, state="readonly", width=35)
+        ctk.CTkLabel(self.aba_entrada, text="Registrar Entrada", font=("Segoe UI", 18, "bold"), text_color="#27ae60").pack(pady=(25, 15))
+        
+        ctk.CTkLabel(self.aba_entrada, text="Selecione o Material:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(5, 0))
+        self.combo_mat_ent = ctk.CTkComboBox(self.aba_entrada, state="readonly", width=320, height=35)
         self.combo_mat_ent.pack(pady=5)
-        tk.Label(self.aba_entrada, text="Quantidade a Adicionar:").pack()
-        self.entry_qtd_ent = tk.Entry(self.aba_entrada, width=15)
+        
+        ctk.CTkLabel(self.aba_entrada, text="Quantidade a Adicionar:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_qtd_ent = ctk.CTkEntry(self.aba_entrada, width=320, height=35)
         self.entry_qtd_ent.pack(pady=5)
-        tk.Label(self.aba_entrada, text="Data (ANO-MÊS-DIA):").pack()
-        self.entry_data_ent = tk.Entry(self.aba_entrada, width=15)
+        
+        ctk.CTkLabel(self.aba_entrada, text="Data (ANO-MÊS-DIA):", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_data_ent = ctk.CTkEntry(self.aba_entrada, width=320, height=35)
         self.entry_data_ent.insert(0, datetime.now().strftime("%Y-%m-%d"))  
         self.entry_data_ent.pack(pady=5)
-        tk.Button(self.aba_entrada, text="📥 Confirmar Entrada", command=self.confirmar_entrada, bg="green", fg="white", font=("Arial", 10, "bold")).pack(pady=20)
+        
+        ctk.CTkButton(self.aba_entrada, text="📥 Confirmar Entrada", command=self.confirmar_entrada, 
+                      fg_color="#27ae60", hover_color="#2ecc71", font=("Segoe UI", 12, "bold"), height=40).pack(pady=25)
 
     def _construir_aba_dano(self):
-        tk.Label(self.aba_dano, text="Registar Material Danificado ou Perdido", font=("Arial", 14, "bold"), fg="red").pack(pady=15)
-        tk.Label(self.aba_dano, text="Selecione o Material:").pack()
-        self.combo_mat_dano = ttk.Combobox(self.aba_dano, state="readonly", width=35)
+        ctk.CTkLabel(self.aba_dano, text="Registrar Baixa / Perda", font=("Segoe UI", 18, "bold"), text_color="#e74c3c").pack(pady=(25, 15))
+        
+        ctk.CTkLabel(self.aba_dano, text="Selecione o Material:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(5, 0))
+        self.combo_mat_dano = ctk.CTkComboBox(self.aba_dano, state="readonly", width=320, height=35)
         self.combo_mat_dano.pack(pady=5)
-        tk.Label(self.aba_dano, text="Quantidade Danificada/Perdida:").pack()
-        self.entry_qtd_dano = tk.Entry(self.aba_dano, width=15)
+        
+        ctk.CTkLabel(self.aba_dano, text="Quantidade Danificada/Perdida:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_qtd_dano = ctk.CTkEntry(self.aba_dano, width=320, height=35)
         self.entry_qtd_dano.pack(pady=5)
-        tk.Label(self.aba_dano, text="Data (ANO-MÊS-DIA):").pack()
-        self.entry_data_dano = tk.Entry(self.aba_dano, width=15)
+        
+        ctk.CTkLabel(self.aba_dano, text="Data (ANO-MÊS-DIA):", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_data_dano = ctk.CTkEntry(self.aba_dano, width=320, height=35)
         self.entry_data_dano.insert(0, datetime.now().strftime("%Y-%m-%d"))  
         self.entry_data_dano.pack(pady=5)
-        tk.Button(self.aba_dano, text="⚠️ Confirmar Baixa", command=self.confirmar_dano, bg="red", fg="white", font=("Arial", 10, "bold")).pack(pady=20)
+        
+        ctk.CTkButton(self.aba_dano, text="⚠️ Confirmar Baixa", command=self.confirmar_dano, 
+                      fg_color="#c0392b", hover_color="#e74c3c", font=("Segoe UI", 12, "bold"), height=40).pack(pady=25)
 
     def atualizar_combos_mov(self):
-        # 1. Salva o ID que o usuário estava manipulando antes de atualizar
         sel_ent = self.combo_mat_ent.get().split(" - ")[0] if self.combo_mat_ent.get() else None
         sel_dano = self.combo_mat_dano.get().split(" - ")[0] if self.combo_mat_dano.get() else None
 
         try:
-            materiais_db = self.sistema.listar_materiais()
-            lista_formatada = [f"{m[0]} - {m[1]} (Atual: {m[2]})" for m in materiais_db]
-            self.combo_mat_ent['values'] = lista_formatada
-            self.combo_mat_dano['values'] = lista_formatada
-            
+            lista_formatada = [f"{m[0]} - {m[1]} (Atual: {m[2]})" for m in self.sistema.listar_materiais()]
             if lista_formatada:
-                # 2. Procura a posição do ID antigo na nova lista e restaura o foco
-                idx_ent = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_ent} - ")), 0)
-                self.combo_mat_ent.current(idx_ent)
+                self.combo_mat_ent.configure(values=lista_formatada)
+                self.combo_mat_dano.configure(values=lista_formatada)
                 
+                idx_ent = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_ent} - ")), 0)
                 idx_dano = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_dano} - ")), 0)
-                self.combo_mat_dano.current(idx_dano)
+                
+                self.combo_mat_ent.set(lista_formatada[idx_ent])
+                self.combo_mat_dano.set(lista_formatada[idx_dano])
             else:
-                self.combo_mat_ent.set('')
-                self.combo_mat_dano.set('')
+                self.combo_mat_ent.configure(values=[""]); self.combo_mat_dano.configure(values=[""])
+                self.combo_mat_ent.set(""); self.combo_mat_dano.set("")
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao carregar materiais: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
 
     def confirmar_entrada(self):
-        selecionado = self.combo_mat_ent.get()
-        qtd_texto = self.entry_qtd_ent.get()
-        data_texto = self.entry_data_ent.get()
-        if not selecionado or qtd_texto == "" or data_texto == "":
-            messagebox.showerror("Erro", "Todos os campos são obrigatórios!", parent=self)
-            return
+        selecionado, qtd_texto, data_texto = self.combo_mat_ent.get(), self.entry_qtd_ent.get(), self.entry_data_ent.get()
+        if not selecionado or not qtd_texto or not data_texto: return messagebox.showerror("Erro", "Todos os campos obrigatórios!", parent=self)
         try:
             quantidade = int(qtd_texto)
-            if quantidade <= 0:
-                messagebox.showerror("Erro", "A quantidade deve ser maior que zero!", parent=self)
-                return
-        except ValueError:
-            messagebox.showerror("Erro", "A quantidade deve ser um número inteiro!", parent=self)
-            return
-        try:
-            datetime.strptime(data_texto, "%Y-%m-%d")
-        except ValueError:
-            messagebox.showerror("Erro", "Formato de data inválido. Use ANO-MÊS-DIA (Ex: 2024-12-25)", parent=self)
-            return
-            
-        id_mat = int(selecionado.split(" - ")[0])
-        monitor_selecionado = self.combo_monitor_resp.get()
-        id_monitor = int(monitor_selecionado.split(" - ")[0])
+            if quantidade <= 0: return messagebox.showerror("Erro", "Quantidade maior que zero!", parent=self)
+        except: return messagebox.showerror("Erro", "Número inteiro!", parent=self)
         
+        try: datetime.strptime(data_texto, "%Y-%m-%d")
+        except: return messagebox.showerror("Erro", "Use ANO-MÊS-DIA", parent=self)
+            
         try:
-            self.sistema.criar_entrada(data_texto, quantidade, id_mat, id_monitor=id_monitor)
-            messagebox.showinfo("Sucesso", "Entrada registada! Histórico gravado.", parent=self)
-            self.entry_qtd_ent.delete(0, tk.END)
+            id_mat, id_mon = int(selecionado.split(" - ")[0]), int(self.combo_monitor_resp.get().split(" - ")[0])
+            self.sistema.criar_entrada(data_texto, quantidade, id_mat, id_monitor=id_mon)
+            messagebox.showinfo("Sucesso", "Entrada registada!", parent=self)
+            self.entry_qtd_ent.delete(0, 'end')
             self.atualizar_combos_mov() 
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao registar entrada: {e}", parent=self)
+        except Exception as e: messagebox.showerror("Erro", f"Erro: {e}", parent=self)
 
     def confirmar_dano(self):
-        selecionado = self.combo_mat_dano.get()
-        qtd_texto = self.entry_qtd_dano.get()
-        data_texto = self.entry_data_dano.get() # CORREÇÃO 2: Capturando a data
-
-        if not selecionado or qtd_texto == "" or data_texto == "":
-            messagebox.showerror("Erro", "Todos os campos são obrigatórios!", parent=self)
-            return
-
+        selecionado, qtd_texto, data_texto = self.combo_mat_dano.get(), self.entry_qtd_dano.get(), self.entry_data_dano.get()
+        if not selecionado or not qtd_texto or not data_texto: return messagebox.showerror("Erro", "Preencha tudo!", parent=self)
         try:
             quantidade = int(qtd_texto)
-            if quantidade <= 0:
-                messagebox.showerror("Erro", "A quantidade deve ser maior que zero!", parent=self)
-                return
-        except ValueError:
-            messagebox.showerror("Erro", "A quantidade deve ser um número inteiro!", parent=self)
-            return
+            if quantidade <= 0: return messagebox.showerror("Erro", "Maior que zero!", parent=self)
+        except: return messagebox.showerror("Erro", "Inteiro!", parent=self)
 
         id_mat = int(selecionado.split(" - ")[0])
-        materiais_db = self.sistema.listar_materiais()
-        material_atual = next((m for m in materiais_db if m[0] == id_mat), None)
-        
+        material_atual = next((m for m in self.sistema.listar_materiais() if m[0] == id_mat), None)
         if material_atual and quantidade > material_atual[2]:
-            messagebox.showerror("Erro", f"Estoque insuficiente! Disponível: {material_atual[2]}", parent=self)
-            return
+            return messagebox.showerror("Erro", f"Insuficiente! Disp: {material_atual[2]}", parent=self)
         
-        try:
-            datetime.strptime(data_texto, "%Y-%m-%d")
-        except ValueError:
-            messagebox.showerror("Erro", "Formato de data inválido. Use ANO-MÊS-DIA (Ex: 2024-12-25)", parent=self)
-            return
+        try: datetime.strptime(data_texto, "%Y-%m-%d")
+        except: return messagebox.showerror("Erro", "Use ANO-MÊS-DIA", parent=self)
             
-        monitor_selecionado = self.combo_monitor_resp.get()
-        id_monitor = int(monitor_selecionado.split(" - ")[0])
-        
         try:
-            self.sistema.criar_danos(data_texto, quantidade, id_mat, id_monitor=id_monitor)
-            messagebox.showinfo("Sucesso", "Dano/Perda registado! Histórico gravado.", parent=self)
-            self.entry_qtd_dano.delete(0, tk.END)
+            id_mon = int(self.combo_monitor_resp.get().split(" - ")[0])
+            self.sistema.criar_danos(data_texto, quantidade, id_mat, id_monitor=id_mon)
+            messagebox.showinfo("Sucesso", "Dano registado!", parent=self)
+            self.entry_qtd_dano.delete(0, 'end')
             self.atualizar_combos_mov()  
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao registar dano: {e}", parent=self)
+        except Exception as e: messagebox.showerror("Erro", f"Erro: {e}", parent=self)

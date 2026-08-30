@@ -1,5 +1,7 @@
 Sistema de Gerenciamento de Materiais e Estoque
 
+Um sistema desktop desenvolvido em Python para o controle eficiente de inventário, registro de movimentações e auditoria de materiais através de check-lists diários. O sistema gera relatórios automatizados em texto e gráficos visuais para facilitar a tomada de decisão.
+
 Funcionalidades
 
 - Gestão de Usuários: Cadastro (sem autenticação), atualização e exclusão (soft delete) dos responsáveis pelo estoque.

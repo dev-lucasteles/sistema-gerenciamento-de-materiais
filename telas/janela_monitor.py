@@ -1,24 +1,25 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
+import customtkinter as ctk
+from tkinter import messagebox
 
-class JanelaMonitor(tk.Toplevel):
+class JanelaMonitor(ctk.CTkToplevel):
     def __init__(self, master, sistema):
         super().__init__(master)
         self.sistema = sistema
         self.title("Gerenciar Monitores")
-        self.geometry("400x350")
+        self.geometry("450x400")
         self.transient(master)
         self.grab_set()
-        self.abas = ttk.Notebook(self)
-        self.abas.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        self.abas = ctk.CTkTabview(self, corner_radius=10, fg_color="#1e1e1e")
+        self.abas.pack(fill="both", expand=True, padx=20, pady=20)
 
-        self.aba_cadastrar = tk.Frame(self.abas)
-        self.aba_atualizar = tk.Frame(self.abas)
-        self.aba_deletar = tk.Frame(self.abas)
+        self.abas.add(" Cadastrar ")
+        self.abas.add(" Atualizar ")
+        self.abas.add(" Deletar ")
 
-        self.abas.add(self.aba_cadastrar, text="Cadastrar Novo")
-        self.abas.add(self.aba_atualizar, text="Atualizar")
-        self.abas.add(self.aba_deletar, text="Deletar")
+        self.aba_cadastrar = self.abas.tab(" Cadastrar ")
+        self.aba_atualizar = self.abas.tab(" Atualizar ")
+        self.aba_deletar = self.abas.tab(" Deletar ")
 
         self._construir_aba_cadastrar()
         self._construir_aba_atualizar()
@@ -26,98 +27,95 @@ class JanelaMonitor(tk.Toplevel):
         self.atualizar_listas()
 
     def _construir_aba_cadastrar(self):
-        tk.Label(self.aba_cadastrar, text="Cadastrar Novo Monitor", font=("Arial", 14, "bold")).pack(pady=15)
-        tk.Label(self.aba_cadastrar, text="Nome do Monitor:").pack()
-        self.entry_nome_mon = tk.Entry(self.aba_cadastrar, width=30)
+        ctk.CTkLabel(self.aba_cadastrar, text="Cadastrar Novo Monitor", font=("Segoe UI", 18, "bold"), text_color="#e0e0e0").pack(pady=(25, 15))
+        
+        ctk.CTkLabel(self.aba_cadastrar, text="Nome Completo do Monitor:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_nome_mon = ctk.CTkEntry(self.aba_cadastrar, width=320, height=35)
         self.entry_nome_mon.pack(pady=5)
-        tk.Button(self.aba_cadastrar, text="Salvar Monitor", command=self.salvar_monitor, bg="green", fg="white", font=("Arial", 10, "bold")).pack(pady=20)
+        
+        ctk.CTkButton(self.aba_cadastrar, text="Salvar Monitor", command=self.salvar_monitor, 
+                      fg_color="#27ae60", hover_color="#2ecc71", font=("Segoe UI", 12, "bold"), height=40).pack(pady=30)
 
     def _construir_aba_atualizar(self):
-        tk.Label(self.aba_atualizar, text="Atualizar Nome do Monitor", font=("Arial", 14, "bold")).pack(pady=15)
-        tk.Label(self.aba_atualizar, text="Selecione o Monitor antigo:").pack()
-        self.combo_atualizar = ttk.Combobox(self.aba_atualizar, state="readonly", width=27)
+        ctk.CTkLabel(self.aba_atualizar, text="Atualizar Monitor", font=("Segoe UI", 18, "bold"), text_color="#e0e0e0").pack(pady=(25, 15))
+        
+        ctk.CTkLabel(self.aba_atualizar, text="Selecione o Monitor antigo:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(5, 0))
+        self.combo_atualizar = ctk.CTkComboBox(self.aba_atualizar, state="readonly", width=320, height=35, command=self.preencher_dados_atuais)
         self.combo_atualizar.pack(pady=5)
-        self.combo_atualizar.bind("<<ComboboxSelected>>", self.preencher_dados_atuais)
-        tk.Label(self.aba_atualizar, text="Digite o Novo Nome:").pack()
-        self.entry_novo_nome = tk.Entry(self.aba_atualizar, width=30)
+        
+        ctk.CTkLabel(self.aba_atualizar, text="Digite o Novo Nome:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.entry_novo_nome = ctk.CTkEntry(self.aba_atualizar, width=320, height=35)
         self.entry_novo_nome.pack(pady=5)
-        tk.Button(self.aba_atualizar, text="Atualizar Nome", command=self.btn_atualizar_click, bg="#0052cc", fg="white", font=("Arial", 10, "bold")).pack(pady=15)
+        
+        ctk.CTkButton(self.aba_atualizar, text="Atualizar Nome", command=self.btn_atualizar_click, 
+                      fg_color="#2980b9", hover_color="#3498db", font=("Segoe UI", 12, "bold"), height=40).pack(pady=25)
 
     def _construir_aba_deletar(self):
-        tk.Label(self.aba_deletar, text="Deletar Monitor", font=("Arial", 14, "bold"), fg="red").pack(pady=15)
-        tk.Label(self.aba_deletar, text="Selecione o Monitor:").pack()
-        self.combo_deletar = ttk.Combobox(self.aba_deletar, state="readonly", width=27)
+        ctk.CTkLabel(self.aba_deletar, text="Deletar Monitor", font=("Segoe UI", 18, "bold"), text_color="#e74c3c").pack(pady=(35, 15))
+        
+        ctk.CTkLabel(self.aba_deletar, text="Selecione o Monitor a ser removido:", text_color="#a0a0a0").pack(anchor="w", padx=40, pady=(10, 0))
+        self.combo_deletar = ctk.CTkComboBox(self.aba_deletar, state="readonly", width=320, height=35)
         self.combo_deletar.pack(pady=5)
-        tk.Button(self.aba_deletar, text="🗑️ Deletar Monitor", command=self.btn_deletar_click, bg="red", fg="white", font=("Arial", 10, "bold")).pack(pady=20)
+        
+        ctk.CTkButton(self.aba_deletar, text="🗑️ Deletar Monitor", command=self.btn_deletar_click, 
+                      fg_color="#c0392b", hover_color="#e74c3c", font=("Segoe UI", 12, "bold"), height=40).pack(pady=35)
 
-    def preencher_dados_atuais(self, event=None):
+    def preencher_dados_atuais(self, valor_selecionado=None):
         selecionado = self.combo_atualizar.get()
         if not selecionado: return
         id_mon = int(selecionado.split(" - ")[0])
-        monitores_db = self.sistema.listar_monitores()
-        monitor = next((m for m in monitores_db if m[0] == id_mon), None)
+        monitor = next((m for m in self.sistema.listar_monitores() if m[0] == id_mon), None)
         if monitor:
-            self.entry_novo_nome.delete(0, tk.END)
+            self.entry_novo_nome.delete(0, 'end')
             self.entry_novo_nome.insert(0, monitor[1])
 
     def atualizar_listas(self):
         sel_atual = self.combo_atualizar.get().split(" - ")[0] if self.combo_atualizar.get() else None
         try:
-            monitores_db = self.sistema.listar_monitores()
-            lista_formatada = [f"{m[0]} - {m[1]}" for m in monitores_db]
-            self.combo_atualizar['values'] = lista_formatada
-            self.combo_deletar['values'] = lista_formatada
+            lista_formatada = [f"{m[0]} - {m[1]}" for m in self.sistema.listar_monitores()]
             if lista_formatada:
+                self.combo_atualizar.configure(values=lista_formatada)
+                self.combo_deletar.configure(values=lista_formatada)
                 idx_atual = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_atual} - ")), 0)
-                self.combo_atualizar.current(idx_atual)
-                self.combo_deletar.current(0)
+                self.combo_atualizar.set(lista_formatada[idx_atual])
+                self.combo_deletar.set(lista_formatada[0])
                 self.preencher_dados_atuais()
             else:
-                self.combo_atualizar.set('')
-                self.combo_deletar.set('')
-                self.entry_novo_nome.delete(0, tk.END)
+                self.combo_atualizar.configure(values=[""]); self.combo_deletar.configure(values=[""])
+                self.combo_atualizar.set(""); self.combo_deletar.set("")
+                self.entry_novo_nome.delete(0, 'end')
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao atualizar listas: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
 
     def salvar_monitor(self):
         nome = self.entry_nome_mon.get().strip()
-        if nome == "":
-            messagebox.showerror("Erro", "O nome é obrigatório!", parent=self)
-            return
+        if not nome: return messagebox.showerror("Erro", "O nome é obrigatório!", parent=self)
         try:
             self.sistema.criar_monitor(nome)
             messagebox.showinfo("Sucesso", f"Monitor '{nome}' cadastrado!", parent=self)
-            self.entry_nome_mon.delete(0, tk.END)
+            self.entry_nome_mon.delete(0, 'end')
             self.atualizar_listas() 
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao salvar: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
 
     def btn_atualizar_click(self):
-        selecionado = self.combo_atualizar.get()
-        novo_nome = self.entry_novo_nome.get().strip()
-        if not selecionado or novo_nome == "":
-            messagebox.showerror("Erro", "Selecione um monitor e digite o novo nome!", parent=self)
-            return
-        id_mon = int(selecionado.split(" - ")[0])
+        selecionado, novo_nome = self.combo_atualizar.get(), self.entry_novo_nome.get().strip()
+        if not selecionado or not novo_nome: return messagebox.showerror("Erro", "Preencha o novo nome!", parent=self)
         try:
-            self.sistema.atualizar_monitor(id_mon, novo_nome)
-            messagebox.showinfo("Sucesso", "Monitor atualizado com sucesso!", parent=self)
-            self.entry_novo_nome.delete(0, tk.END)
+            self.sistema.atualizar_monitor(int(selecionado.split(" - ")[0]), novo_nome)
+            messagebox.showinfo("Sucesso", "Monitor atualizado!", parent=self)
+            self.entry_novo_nome.delete(0, 'end')
             self.atualizar_listas()
         except Exception as e:
             messagebox.showerror("Erro", f"Erro: {e}", parent=self)
 
     def btn_deletar_click(self):
         selecionado = self.combo_deletar.get()
-        if not selecionado:
-            messagebox.showerror("Erro", "Selecione um monitor para deletar!", parent=self)
-            return
-        resposta = messagebox.askyesno("Confirmar Exclusão", f"Você tem certeza que deseja deletar:\n\n{selecionado}?", parent=self)
-        if resposta:
-            id_mon = int(selecionado.split(" - ")[0])
+        if not selecionado: return messagebox.showerror("Erro", "Selecione!", parent=self)
+        if messagebox.askyesno("Confirmar", f"Deletar:\n{selecionado}?", parent=self):
             try:
-                self.sistema.deletar_monitor(id_mon)
-                messagebox.showinfo("Sucesso", "Monitor deletado do sistema!", parent=self)
+                self.sistema.deletar_monitor(int(selecionado.split(" - ")[0]))
+                messagebox.showinfo("Sucesso", "Deletado!", parent=self)
                 self.atualizar_listas()
             except Exception as e:
                 messagebox.showerror("Erro", f"Erro: {e}", parent=self)
