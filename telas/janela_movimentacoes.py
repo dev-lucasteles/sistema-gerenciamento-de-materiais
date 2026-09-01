@@ -2,10 +2,12 @@ import customtkinter as ctk
 from tkinter import messagebox
 from datetime import datetime
 
+from excecoes import EstoqueInsuficienteError, MaterialNaoEncontradoError
+
 class JanelaMovimentacoes(ctk.CTkToplevel):
-    def __init__(self, master, sistema):
+    def __init__(self, master, servico_estoque):
         super().__init__(master)
-        self.sistema = sistema
+        self.servico_estoque = servico_estoque 
         self.title("Movimentações de Estoque")
         self.geometry("450x520") 
         self.transient(master)
@@ -29,17 +31,17 @@ class JanelaMovimentacoes(ctk.CTkToplevel):
     
     def _configurar_monitor_responsavel(self):
         try:
-            monitores_db = self.sistema.listar_monitores()
+            monitores = self.servico_estoque.listar_monitores_ativos()
         except Exception as e:
             messagebox.showerror("Erro", str(e), parent=self)
             self.destroy()
             return False
-        if not monitores_db:
+        if not monitores:
             messagebox.showwarning("Aviso", "Cadastre um monitor antes!", parent=self)
             self.destroy()
             return False
 
-        lista_monitores = [f"{m[0]} - {m[1]}" for m in monitores_db]
+        lista_monitores = [f"{m.id_monitor} - {m.nome}" for m in monitores]
         frame_monitor = ctk.CTkFrame(self, fg_color="transparent")
         frame_monitor.pack(pady=(15, 10))
         
@@ -92,7 +94,9 @@ class JanelaMovimentacoes(ctk.CTkToplevel):
         sel_dano = self.combo_mat_dano.get().split(" - ")[0] if self.combo_mat_dano.get() else None
 
         try:
-            lista_formatada = [f"{m[0]} - {m[1]} (Atual: {m[2]})" for m in self.sistema.listar_materiais()]
+            materiais = self.servico_estoque.listar_materiais_ativos()
+            lista_formatada = [f"{m.id_material} - {m.nome} (Atual: {m.quantidade})" for m in materiais]
+            
             if lista_formatada:
                 self.combo_mat_ent.configure(values=lista_formatada)
                 self.combo_mat_dano.configure(values=lista_formatada)
@@ -103,50 +107,77 @@ class JanelaMovimentacoes(ctk.CTkToplevel):
                 self.combo_mat_ent.set(lista_formatada[idx_ent])
                 self.combo_mat_dano.set(lista_formatada[idx_dano])
             else:
-                self.combo_mat_ent.configure(values=[""]); self.combo_mat_dano.configure(values=[""])
-                self.combo_mat_ent.set(""); self.combo_mat_dano.set("")
+                self.combo_mat_ent.configure(values=[""])
+                self.combo_mat_dano.configure(values=[""])
+                self.combo_mat_ent.set("")
+                self.combo_mat_dano.set("")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro: {e}", parent=self)
 
     def confirmar_entrada(self):
-        selecionado, qtd_texto, data_texto = self.combo_mat_ent.get(), self.entry_qtd_ent.get(), self.entry_data_ent.get()
-        if not selecionado or not qtd_texto or not data_texto: return messagebox.showerror("Erro", "Todos os campos obrigatórios!", parent=self)
-        try:
-            quantidade = int(qtd_texto)
-            if quantidade <= 0: return messagebox.showerror("Erro", "Quantidade maior que zero!", parent=self)
-        except: return messagebox.showerror("Erro", "Número inteiro!", parent=self)
+        selecionado = self.combo_mat_ent.get()
+        qtd_texto = self.entry_qtd_ent.get().strip()
+        data_texto = self.entry_data_ent.get().strip()
         
-        try: datetime.strptime(data_texto, "%Y-%m-%d")
-        except: return messagebox.showerror("Erro", "Use ANO-MÊS-DIA", parent=self)
+        if not selecionado or not qtd_texto or not data_texto:
+            return messagebox.showerror("Erro", "Preencha todos os campos obrigatórios!", parent=self)
             
         try:
-            id_mat, id_mon = int(selecionado.split(" - ")[0]), int(self.combo_monitor_resp.get().split(" - ")[0])
-            self.sistema.criar_entrada(data_texto, quantidade, id_mat, id_monitor=id_mon)
-            messagebox.showinfo("Sucesso", "Entrada registada!", parent=self)
+            quantidade = int(qtd_texto)
+            datetime.strptime(data_texto, "%Y-%m-%d") 
+            
+            id_mat = int(selecionado.split(" - ")[0])
+            id_mon = int(self.combo_monitor_resp.get().split(" - ")[0])
+
+            self.servico_estoque.registrar_entrada_material(
+                id_material=id_mat,
+                quantidade_adicionada=quantidade,
+                id_monitor=id_mon,
+                data_entrada=data_texto
+            )
+
+            messagebox.showinfo("Sucesso", "Entrada registrada e estoque atualizado!", parent=self)
             self.entry_qtd_ent.delete(0, 'end')
-            self.atualizar_combos_mov() 
-        except Exception as e: messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            self.atualizar_combos_mov()  
+
+        except ValueError:
+            messagebox.showerror("Erro de Preenchimento", "Verifique os dados:\n- Quantidade deve ser um número inteiro positivo.\n- Data deve ser ANO-MÊS-DIA.", parent=self)
+        except MaterialNaoEncontradoError as e:
+            messagebox.showerror("Erro de Material", str(e), parent=self)
+        except Exception as e:
+            messagebox.showerror("Erro Crítico", f"Falha interna no sistema:\n{e}", parent=self)
 
     def confirmar_dano(self):
-        selecionado, qtd_texto, data_texto = self.combo_mat_dano.get(), self.entry_qtd_dano.get(), self.entry_data_dano.get()
-        if not selecionado or not qtd_texto or not data_texto: return messagebox.showerror("Erro", "Preencha tudo!", parent=self)
+        selecionado = self.combo_mat_dano.get()
+        qtd_texto = self.entry_qtd_dano.get().strip()
+        data_texto = self.entry_data_dano.get().strip()
+
+        if not selecionado or not qtd_texto or not data_texto:
+            return messagebox.showerror("Erro", "Preencha todos os campos obrigatórios!", parent=self)
+
         try:
             quantidade = int(qtd_texto)
-            if quantidade <= 0: return messagebox.showerror("Erro", "Maior que zero!", parent=self)
-        except: return messagebox.showerror("Erro", "Inteiro!", parent=self)
-
-        id_mat = int(selecionado.split(" - ")[0])
-        material_atual = next((m for m in self.sistema.listar_materiais() if m[0] == id_mat), None)
-        if material_atual and quantidade > material_atual[2]:
-            return messagebox.showerror("Erro", f"Insuficiente! Disp: {material_atual[2]}", parent=self)
-        
-        try: datetime.strptime(data_texto, "%Y-%m-%d")
-        except: return messagebox.showerror("Erro", "Use ANO-MÊS-DIA", parent=self)
+            datetime.strptime(data_texto, "%Y-%m-%d") 
             
-        try:
+            id_mat = int(selecionado.split(" - ")[0])
             id_mon = int(self.combo_monitor_resp.get().split(" - ")[0])
-            self.sistema.criar_danos(data_texto, quantidade, id_mat, id_monitor=id_mon)
-            messagebox.showinfo("Sucesso", "Dano registado!", parent=self)
+
+            self.servico_estoque.registrar_baixa_por_dano(
+                id_material=id_mat,
+                quantidade_perdida=quantidade,
+                id_monitor=id_mon,
+                data_baixa=data_texto
+            )
+
+            messagebox.showinfo("Sucesso", "Dano registrado e estoque atualizado!", parent=self)
             self.entry_qtd_dano.delete(0, 'end')
             self.atualizar_combos_mov()  
-        except Exception as e: messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+
+        except ValueError:
+            messagebox.showerror("Erro de Preenchimento", "Verifique os dados:\n- Quantidade deve ser um número inteiro positivo.\n- Data deve ser ANO-MÊS-DIA.", parent=self)
+        except EstoqueInsuficienteError as e:
+            messagebox.showwarning("Atenção - Estoque", str(e), parent=self)
+        except MaterialNaoEncontradoError as e:
+            messagebox.showerror("Erro de Material", str(e), parent=self)
+        except Exception as e:
+            messagebox.showerror("Erro Crítico", f"Falha interna no sistema:\n{e}", parent=self)

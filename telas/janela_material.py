@@ -2,9 +2,9 @@ import customtkinter as ctk
 from tkinter import messagebox
 
 class JanelaMaterial(ctk.CTkToplevel):
-    def __init__(self, master, sistema):
+    def __init__(self, master, servico_estoque):
         super().__init__(master)
-        self.sistema = sistema
+        self.servico_estoque = servico_estoque
         self.title("Gerenciar Materiais")
         self.geometry("450x580") 
         self.transient(master)
@@ -31,18 +31,18 @@ class JanelaMaterial(ctk.CTkToplevel):
 
     def _configurar_monitor_responsavel(self):
         try:
-            monitores_db = self.sistema.listar_monitores()
+            monitores = self.servico_estoque.listar_monitores_ativos()
         except Exception as e:
             messagebox.showerror("Erro", str(e), parent=self)
             self.destroy()
             return False
 
-        if not monitores_db:
+        if not monitores:
             messagebox.showwarning("Aviso", "Cadastre um monitor antes!", parent=self)
             self.destroy()
             return False
 
-        lista_monitores = [f"{m[0]} - {m[1]}" for m in monitores_db]
+        lista_monitores = [f"{m.id_monitor} - {m.nome}" for m in monitores]
         frame_monitor = ctk.CTkFrame(self, fg_color="transparent")
         frame_monitor.pack(pady=(15, 10))
         
@@ -91,14 +91,16 @@ class JanelaMaterial(ctk.CTkToplevel):
     def preencher_dados_atuais(self, valor_selecionado=None):
         selecionado = self.combo_atualizar_mat.get()
         if not selecionado: return
+        
         id_mat = int(selecionado.split(" - ")[0])
-        material = next((m for m in self.sistema.listar_materiais() if m[0] == id_mat), None)
+        material = next((m for m in self.servico_estoque.listar_materiais_ativos() if m.id_material == id_mat), None)
+        
         if material:
             self.entry_novo_nome_mat.delete(0, 'end')
-            self.entry_novo_nome_mat.insert(0, material[1]) 
+            self.entry_novo_nome_mat.insert(0, material.nome) 
             self.entry_novas_obs.delete(0, 'end')
-            if material[3]: 
-                self.entry_novas_obs.insert(0, material[3])
+            if material.observacoes: 
+                self.entry_novas_obs.insert(0, material.observacoes)
 
     def _construir_aba_deletar(self):
         ctk.CTkLabel(self.aba_deletar, text="Deletar Material", font=("Segoe UI", 18, "bold"), text_color="#e74c3c").pack(pady=(35, 15))
@@ -115,7 +117,9 @@ class JanelaMaterial(ctk.CTkToplevel):
         sel_del = self.combo_deletar_mat.get().split(" - ")[0] if self.combo_deletar_mat.get() else None
 
         try:
-            lista_formatada = [f"{m[0]} - {m[1]}" for m in self.sistema.listar_materiais()]
+            materiais = self.servico_estoque.listar_materiais_ativos()
+            lista_formatada = [f"{m.id_material} - {m.nome}" for m in materiais]
+            
             if lista_formatada:
                 self.combo_atualizar_mat.configure(values=lista_formatada)
                 self.combo_deletar_mat.configure(values=lista_formatada)
@@ -134,10 +138,13 @@ class JanelaMaterial(ctk.CTkToplevel):
                 self.entry_novo_nome_mat.delete(0, 'end')
                 self.entry_novas_obs.delete(0, 'end')
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao atualizar: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro ao atualizar listas: {e}", parent=self)
 
     def salvar_material(self):
-        nome, quantidade_texto, observacoes = self.entry_nome.get().strip(), self.entry_quantidade.get(), self.entry_obs.get()
+        nome = self.entry_nome.get().strip()
+        quantidade_texto = self.entry_quantidade.get()
+        observacoes = self.entry_obs.get()
+        
         if not nome or not quantidade_texto:
             messagebox.showerror("Erro", "Nome e quantidade são obrigatórios!", parent=self)
             return
@@ -150,44 +157,58 @@ class JanelaMaterial(ctk.CTkToplevel):
         try:
             quantidade = int(quantidade_texto)
             if quantidade < 0: return messagebox.showerror("Erro", "Quantidade negativa não permitida!", parent=self)
-        except:
+        except ValueError:
             return messagebox.showerror("Erro", "A quantidade deve ser um número inteiro!", parent=self)
             
         try:
             id_monitor = int(self.combo_monitor_resp.get().split(" - ")[0])
-            self.sistema.criar_material(nome, quantidade, observacoes, id_monitor=id_monitor)
+            self.servico_estoque.criar_material(nome, quantidade, observacoes, id_monitor=id_monitor)
+            
             messagebox.showinfo("Sucesso", f"Material '{nome}' cadastrado!", parent=self)
-            self.entry_nome.delete(0, 'end'); self.entry_quantidade.delete(0, 'end'); self.entry_obs.delete(0, 'end')
+            self.entry_nome.delete(0, 'end')
+            self.entry_quantidade.delete(0, 'end')
+            self.entry_obs.delete(0, 'end')
             self.atualizar_listas_mat() 
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro ao salvar: {e}", parent=self)
 
     def btn_atualizar_mat_click(self):
-        selecionado, novo_nome, novas_obs = self.combo_atualizar_mat.get(), self.entry_novo_nome_mat.get().strip(), self.entry_novas_obs.get()
+        selecionado = self.combo_atualizar_mat.get()
+        novo_nome = self.entry_novo_nome_mat.get().strip()
+        novas_obs = self.entry_novas_obs.get()
+        
         if not selecionado or not novo_nome:
-            return messagebox.showerror("Erro", "Selecione e preencha o novo nome!", parent=self)
+            return messagebox.showerror("Erro", "Selecione o material e preencha o novo nome!", parent=self)
         
         if novo_nome.lower() != selecionado.split(" - ", 1)[1].lower():
             if novo_nome.lower() in [item.split(" - ", 1)[1].lower() for item in self.combo_atualizar_mat.cget("values") if item]:
                 return messagebox.showwarning("Aviso", "Já existe outro material com esse nome!", parent=self)
 
         try:
-            id_mat, id_monitor = int(selecionado.split(" - ")[0]), int(self.combo_monitor_resp.get().split(" - ")[0])
-            self.sistema.atualizar_material(id_mat, novo_nome, novas_obs, id_monitor=id_monitor)
+            id_mat = int(selecionado.split(" - ")[0])
+            id_monitor = int(self.combo_monitor_resp.get().split(" - ")[0])
+            
+            self.servico_estoque.atualizar_material(id_mat, novo_nome, novas_obs, id_monitor=id_monitor)
+            
             messagebox.showinfo("Sucesso", "Material atualizado!", parent=self)
-            self.entry_novo_nome_mat.delete(0, 'end'); self.entry_novas_obs.delete(0, 'end')
+            self.entry_novo_nome_mat.delete(0, 'end')
+            self.entry_novas_obs.delete(0, 'end')
             self.atualizar_listas_mat()
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro ao atualizar: {e}", parent=self)
 
     def btn_deletar_mat_click(self):
         selecionado = self.combo_deletar_mat.get()
-        if not selecionado: return messagebox.showerror("Erro", "Selecione material!", parent=self)
-        if messagebox.askyesno("Confirmar", f"Deletar:\n{selecionado}?", parent=self):
+        if not selecionado: return messagebox.showerror("Erro", "Selecione um material!", parent=self)
+        
+        if messagebox.askyesno("Confirmar", f"Tem certeza que deseja deletar:\n{selecionado}?", parent=self):
             try:
-                id_mat, id_monitor = int(selecionado.split(" - ")[0]), int(self.combo_monitor_resp.get().split(" - ")[0])
-                self.sistema.deletar_material(id_mat, id_monitor=id_monitor)
-                messagebox.showinfo("Sucesso", "Deletado!", parent=self)
+                id_mat = int(selecionado.split(" - ")[0])
+                id_monitor = int(self.combo_monitor_resp.get().split(" - ")[0])
+                
+                self.servico_estoque.deletar_material(id_mat, id_monitor=id_monitor)
+                
+                messagebox.showinfo("Sucesso", "Material deletado com sucesso!", parent=self)
                 self.atualizar_listas_mat()
             except Exception as e:
-                messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+                messagebox.showerror("Erro", f"Erro ao deletar: {e}", parent=self)

@@ -2,9 +2,9 @@ import customtkinter as ctk
 from tkinter import messagebox
 
 class JanelaMonitor(ctk.CTkToplevel):
-    def __init__(self, master, sistema):
+    def __init__(self, master, servico_estoque):
         super().__init__(master)
-        self.sistema = sistema
+        self.servico_estoque = servico_estoque
         self.title("Gerenciar Monitores")
         self.geometry("450x400")
         self.transient(master)
@@ -63,59 +63,78 @@ class JanelaMonitor(ctk.CTkToplevel):
     def preencher_dados_atuais(self, valor_selecionado=None):
         selecionado = self.combo_atualizar.get()
         if not selecionado: return
+        
         id_mon = int(selecionado.split(" - ")[0])
-        monitor = next((m for m in self.sistema.listar_monitores() if m[0] == id_mon), None)
+        monitor = next((m for m in self.servico_estoque.listar_monitores_ativos() if m.id_monitor == id_mon), None)
+        
         if monitor:
             self.entry_novo_nome.delete(0, 'end')
-            self.entry_novo_nome.insert(0, monitor[1])
+            self.entry_novo_nome.insert(0, monitor.nome)
 
     def atualizar_listas(self):
         sel_atual = self.combo_atualizar.get().split(" - ")[0] if self.combo_atualizar.get() else None
         try:
-            lista_formatada = [f"{m[0]} - {m[1]}" for m in self.sistema.listar_monitores()]
+            monitores = self.servico_estoque.listar_monitores_ativos()
+            lista_formatada = [f"{m.id_monitor} - {m.nome}" for m in monitores]
+            
             if lista_formatada:
                 self.combo_atualizar.configure(values=lista_formatada)
                 self.combo_deletar.configure(values=lista_formatada)
+                
                 idx_atual = next((i for i, v in enumerate(lista_formatada) if v.startswith(f"{sel_atual} - ")), 0)
                 self.combo_atualizar.set(lista_formatada[idx_atual])
                 self.combo_deletar.set(lista_formatada[0])
                 self.preencher_dados_atuais()
             else:
-                self.combo_atualizar.configure(values=[""]); self.combo_deletar.configure(values=[""])
-                self.combo_atualizar.set(""); self.combo_deletar.set("")
+                self.combo_atualizar.configure(values=[""])
+                self.combo_deletar.configure(values=[""])
+                self.combo_atualizar.set("")
+                self.combo_deletar.set("")
                 self.entry_novo_nome.delete(0, 'end')
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro ao atualizar listas: {e}", parent=self)
 
     def salvar_monitor(self):
         nome = self.entry_nome_mon.get().strip()
-        if not nome: return messagebox.showerror("Erro", "O nome é obrigatório!", parent=self)
+        if not nome: 
+            return messagebox.showerror("Erro", "O nome é obrigatório!", parent=self)
+            
         try:
-            self.sistema.criar_monitor(nome)
+            self.servico_estoque.criar_monitor(nome)
             messagebox.showinfo("Sucesso", f"Monitor '{nome}' cadastrado!", parent=self)
             self.entry_nome_mon.delete(0, 'end')
             self.atualizar_listas() 
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro ao salvar: {e}", parent=self)
 
     def btn_atualizar_click(self):
-        selecionado, novo_nome = self.combo_atualizar.get(), self.entry_novo_nome.get().strip()
-        if not selecionado or not novo_nome: return messagebox.showerror("Erro", "Preencha o novo nome!", parent=self)
+        selecionado = self.combo_atualizar.get()
+        novo_nome = self.entry_novo_nome.get().strip()
+        
+        if not selecionado or not novo_nome: 
+            return messagebox.showerror("Erro", "Selecione o monitor e preencha o novo nome!", parent=self)
+            
         try:
-            self.sistema.atualizar_monitor(int(selecionado.split(" - ")[0]), novo_nome)
-            messagebox.showinfo("Sucesso", "Monitor atualizado!", parent=self)
+            id_monitor = int(selecionado.split(" - ")[0])
+            self.servico_estoque.atualizar_monitor(id_monitor, novo_nome)
+            
+            messagebox.showinfo("Sucesso", "Monitor atualizado com sucesso!", parent=self)
             self.entry_novo_nome.delete(0, 'end')
             self.atualizar_listas()
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            messagebox.showerror("Erro", f"Erro ao atualizar: {e}", parent=self)
 
     def btn_deletar_click(self):
         selecionado = self.combo_deletar.get()
-        if not selecionado: return messagebox.showerror("Erro", "Selecione!", parent=self)
-        if messagebox.askyesno("Confirmar", f"Deletar:\n{selecionado}?", parent=self):
+        if not selecionado: 
+            return messagebox.showerror("Erro", "Selecione um monitor para deletar!", parent=self)
+            
+        if messagebox.askyesno("Confirmar", f"Tem certeza que deseja deletar:\n{selecionado}?", parent=self):
             try:
-                self.sistema.deletar_monitor(int(selecionado.split(" - ")[0]))
-                messagebox.showinfo("Sucesso", "Deletado!", parent=self)
+                id_monitor = int(selecionado.split(" - ")[0])
+                self.servico_estoque.deletar_monitor(id_monitor)
+                
+                messagebox.showinfo("Sucesso", "Monitor deletado com sucesso!", parent=self)
                 self.atualizar_listas()
             except Exception as e:
-                messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+                messagebox.showerror("Erro", f"Erro ao deletar: {e}", parent=self)

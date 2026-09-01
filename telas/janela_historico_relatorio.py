@@ -1,13 +1,10 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from datetime import datetime
-import os
-from servico_checklist import obter_area_de_trabalho
 
 class JanelaHistorico(ctk.CTkToplevel):
-    def __init__(self, master, sistema):
+    def __init__(self, master, servico_relatorios):
         super().__init__(master)
-        self.sistema = sistema
+        self.servico_relatorios = servico_relatorios
         self.title("Histórico de Movimentações")
         self.geometry("750x450")
         self.grab_set()
@@ -19,7 +16,6 @@ class JanelaHistorico(ctk.CTkToplevel):
         frame_tabela = ctk.CTkFrame(self, fg_color="#1e1e1e", corner_radius=10)
         frame_tabela.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        # Estilo da tabela adaptado para Dark Mode
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview.Heading", font=("Segoe UI", 11, "bold"), background="#2a2a2a", foreground="#ffffff", relief="flat", borderwidth=0)
@@ -43,36 +39,44 @@ class JanelaHistorico(ctk.CTkToplevel):
     def carregar_historico(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
-        for i, log in enumerate(self.sistema.listar_historico()):
-            tag = 'par' if i % 2 == 0 else 'impar'
-            self.tree.insert("", "end", values=log, tags=(tag,))
             
-        self.tree.tag_configure('par', background='#222222')
-        self.tree.tag_configure('impar', background='#1e1e1e')
+        try:
+            historico = self.servico_relatorios.listar_historico()
+            for i, log in enumerate(historico):
+                tag = 'par' if i % 2 == 0 else 'impar'
+                self.tree.insert("", "end", values=log, tags=(tag,))
+                
+            self.tree.tag_configure('par', background='#222222')
+            self.tree.tag_configure('impar', background='#1e1e1e')
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao carregar histórico: {e}", parent=self)
 
 
 class JanelaRelatorio(ctk.CTkToplevel):
-    def __init__(self, master, sistema):
+    def __init__(self, master, servicos):
         super().__init__(master)
-        self.sistema = sistema
+        
+        self.servico_estoque = servicos["estoque"]
+        self.servico_relatorios = servicos["relatorios"]
+        
         self.title("Gerar Relatório")
         self.geometry("380x250")
         self.transient(master)
         self.grab_set()
 
         try:
-            monitores_db = self.sistema.listar_monitores()
+            monitores = self.servico_estoque.listar_monitores_ativos()
         except Exception as e:
-            messagebox.showerror("Erro", str(e), parent=self)
+            messagebox.showerror("Erro", f"Falha ao carregar monitores: {e}", parent=self)
             self.destroy()
             return
         
-        if not monitores_db:
+        if not monitores:
             messagebox.showwarning("Aviso", "Cadastre um monitor primeiro!", parent=self)
             self.destroy()
             return
 
-        self.lista_monitores = [f"{linha[0]} - {linha[1]}" for linha in monitores_db]
+        self.lista_monitores = [f"{m.id_monitor} - {m.nome}" for m in monitores]
 
         ctk.CTkLabel(self, text="📄 Quem está gerando o relatório?", font=("Segoe UI", 15, "bold"), text_color="#e0e0e0").pack(pady=(25, 15))
         
@@ -87,34 +91,24 @@ class JanelaRelatorio(ctk.CTkToplevel):
     def confirmar_e_gerar(self):
         monitor_selecionado = self.combo_monitores.get()
         nome_responsavel = monitor_selecionado.split(" - ", 1)[1]
-        agora = datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
-        nome_arquivo = f"Relatorio_Inventario_{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.txt"
-        
-        caminho_desktop = obter_area_de_trabalho()
-        pasta_relatorios = os.path.join(caminho_desktop, "Relatorios_TXT")
-
-        if not os.path.exists(pasta_relatorios):
-            os.makedirs(pasta_relatorios)
-
-        caminho_arquivo = os.path.join(pasta_relatorios, nome_arquivo)
         
         try:
-            materiais = self.sistema.listar_materiais()
-            with open(caminho_arquivo, "w", encoding="utf-8") as arquivo:
-                arquivo.write("=" * 70 + "\n     RELATÓRIO OFICIAL DE INVENTÁRIO\n" + "=" * 70 + "\n")
-                arquivo.write(f"Gerado em: {agora}\n\n--- POSIÇÃO ATUAL DO ESTOQUE ---\n\n")
-                if not materiais:
-                    arquivo.write("Nenhum material cadastrado no sistema.\n")
-                else:
-                    arquivo.write(f"{'ID':<5} | {'NOME DO MATERIAL':<25} | {'QTD':<5} | {'OBSERVAÇÕES'}\n")
-                    arquivo.write("-" * 70 + "\n")
-                    for mat in materiais:
-                        obs = mat[3] if mat[3] else "Nenhuma"
-                        nome_formatado = mat[1][:22] + "..." if len(mat[1]) > 25 else mat[1]
-                        arquivo.write(f"{mat[0]:<5} | {nome_formatado:<25} | {mat[2]:<5} | {obs}\n")
-                arquivo.write("\n" + "=" * 70 + f"\nRelatório gerado por: {nome_responsavel}\n" + "=" * 70 + "\n")
+            materiais_objetos = self.servico_estoque.listar_materiais_ativos()
             
-            messagebox.showinfo("Sucesso", f"Relatório gerado em: {caminho_arquivo}", parent=self)
+            materiais_dicts = [
+                {
+                    "id_material": mat.id_material,
+                    "nome": mat.nome,
+                    "quantidade": mat.quantidade,
+                    "observacoes": mat.observacoes
+                } for mat in materiais_objetos
+            ]
+            
+            caminho_arquivo = self.servico_relatorios.gerar_relatorio_inventario(
+                nome_responsavel, materiais_dicts
+            )
+            
+            messagebox.showinfo("Sucesso", f"Relatório gerado em:\n{caminho_arquivo}", parent=self)
             self.destroy()
         except Exception as e:
-            messagebox.showerror("Erro", f"Erro: {e}", parent=self)
+            messagebox.showerror("Erro", f"Falha ao gerar o relatório:\n{e}", parent=self)

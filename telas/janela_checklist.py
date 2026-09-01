@@ -1,19 +1,24 @@
 import customtkinter as ctk
-from tkinter import ttk, messagebox
-import threading
+from tkinter import messagebox
 import os
 import platform
 import subprocess
-import servico_checklist
+
+from modelos import Material, ItemChecklist
+from utils.executor import rodar_em_background
 
 class JanelaChecklist(ctk.CTkToplevel):
-    def __init__(self, master, sistema):
+    def __init__(self, master, servicos):
         super().__init__(master)
-        self.sistema = sistema
+        
+        self.servico_estoque = servicos["estoque"]
+        self.servico_checklist = servicos["checklist"]
+        
         self.title("Check-list Diário")
         self.geometry("1050x700") 
         self.transient(master)
         self.grab_set()
+        
         self.entradas_checklist = {}
         self.lista_entries = []
 
@@ -33,18 +38,19 @@ class JanelaChecklist(ctk.CTkToplevel):
 
     def _configurar_monitor_responsavel(self):
         try:
-            monitores_db = self.sistema.listar_monitores()
+            monitores = self.servico_estoque.listar_monitores_ativos()
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao buscar monitores: {e}", parent=self)
             self.destroy()
             return False
 
-        if not monitores_db:
+        if not monitores:
             messagebox.showwarning("Aviso", "Você precisa cadastrar pelo menos um monitor antes de realizar o check-list!", parent=self)
             self.destroy()
             return False
 
-        lista_monitores = [f"{m[0]} - {m[1]}" for m in monitores_db]
+        lista_monitores = [f"{m.id_monitor} - {m.nome}" for m in monitores]
+        
         frame_monitor = ctk.CTkFrame(self, fg_color="transparent")
         frame_monitor.pack(pady=10)
         
@@ -88,7 +94,7 @@ class JanelaChecklist(ctk.CTkToplevel):
 
     def _carregar_materiais(self):
         try:
-            materiais = self.sistema.listar_materiais()
+            materiais = self.servico_estoque.listar_materiais_ativos()
         except Exception as e:
             messagebox.showerror("Erro", str(e), parent=self)
             return
@@ -98,14 +104,13 @@ class JanelaChecklist(ctk.CTkToplevel):
             return
 
         for i, mat in enumerate(materiais):
-            id_mat, nome, qtd_esperada = mat[0], mat[1], mat[2]
             bg_color = "#2a2a2a" if i % 2 == 0 else "#1e1e1e"
 
             frame_linha = ctk.CTkFrame(self.frame_lista, fg_color=bg_color, corner_radius=6)
             frame_linha.pack(fill="x", pady=3, padx=5)
 
-            ctk.CTkLabel(frame_linha, text=nome, text_color="#e0e0e0").grid(row=0, column=0, padx=10, pady=8, sticky="w")
-            ctk.CTkLabel(frame_linha, text=str(qtd_esperada), text_color="#e0e0e0").grid(row=0, column=1, padx=10, pady=8)
+            ctk.CTkLabel(frame_linha, text=mat.nome, text_color="#e0e0e0").grid(row=0, column=0, padx=10, pady=8, sticky="w")
+            ctk.CTkLabel(frame_linha, text=str(mat.quantidade), text_color="#e0e0e0").grid(row=0, column=1, padx=10, pady=8)
 
             entry_qtd = ctk.CTkEntry(frame_linha, width=80, justify="center")
             entry_qtd.grid(row=0, column=2, padx=10, pady=8)
@@ -121,7 +126,7 @@ class JanelaChecklist(ctk.CTkToplevel):
             for col, t in enumerate(tamanhos):
                 frame_linha.grid_columnconfigure(col, minsize=t)
 
-            self.entradas_checklist[id_mat] = (nome, qtd_esperada, entry_qtd, combo_obs, entry_quarto)
+            self.entradas_checklist[mat.id_material] = (mat.nome, mat.quantidade, entry_qtd, combo_obs, entry_quarto)
             self.lista_entries.append(entry_qtd)
 
         for index, entry in enumerate(self.lista_entries):
@@ -135,52 +140,76 @@ class JanelaChecklist(ctk.CTkToplevel):
         if not self.entradas_checklist:
             messagebox.showwarning("Aviso", "Não há materiais para verificar no check-list!", parent=self)
             return
+            
         monitor_responsavel = self.combo_monitor_resp.get().split(" - ", 1)[1]
-        
         itens_verificados = []
+        
         for id_mat, dados in self.entradas_checklist.items():
             nome, qtd_esperada, entry, combo_obs, entry_quarto = dados
-            itens_verificados.append({
-                'id_mat': id_mat,
-                'nome': nome,
-                'esperado': qtd_esperada,
-                'encontrado_txt': entry.get(),
-                'obs': combo_obs.get() or "-",
-                'quarto': entry_quarto.get().strip() or "-"
-            })
+            qtd_txt = entry.get().strip()
+            
+            if not qtd_txt:
+                messagebox.showerror("Erro", f"Você esqueceu de preencher a quantidade de '{nome}'.", parent=self)
+                return
+                
+            try:
+                qtd_encontrada = int(qtd_txt)
+                if qtd_encontrada < 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Erro", f"A quantidade de '{nome}' deve ser um número inteiro positivo!", parent=self)
+                return
+                
+            itens_verificados.append(
+                ItemChecklist(
+                    id_material=id_mat,
+                    nome_material=nome,
+                    qtd_esperada=qtd_esperada,
+                    qtd_encontrada=qtd_encontrada,
+                    observacao=combo_obs.get(),
+                    quarto=entry_quarto.get().strip()
+                )
+            )
 
         self.btn_salvar.configure(state="disabled", text="Gerando Relatório... Aguarde!", fg_color="#555555")
 
-        def tarefa_paralela():
-            try:
-                resultado = servico_checklist.processar_checklist(monitor_responsavel, itens_verificados)
-                if self.winfo_exists():
-                    self.after(0, lambda: self.finalizar_salvamento(resultado))
-            except Exception as e:
-                if self.winfo_exists():
-                    self.after(0, lambda err=e: messagebox.showerror("Erro", f"Falha: {err}", parent=self))
-                    self.after(0, lambda: self.btn_salvar.configure(state="normal", text="Salvar e Registrar Check-list", fg_color="#d35400"))
+        def tarefa_pesada():
+            return self.servico_checklist.processar_checklist(monitor_responsavel, itens_verificados)
+            
+        def ao_terminar(resultado):
+            self.finalizar_salvamento(resultado)
+            
+        def ao_falhar(erro):
+            messagebox.showerror("Erro Crítico", f"Falha na geração: {erro}", parent=self)
+            self.btn_salvar.configure(state="normal", text="Salvar e Registrar Check-list", fg_color="#d35400")
 
-        threading.Thread(target=tarefa_paralela, daemon=True).start()
+        rodar_em_background(self, tarefa_pesada, ao_terminar, ao_falhar)
 
     def finalizar_salvamento(self, resultado):
         if not self.winfo_exists(): return
+        
         if not resultado["sucesso"]:
-            messagebox.showerror("Erro", resultado["erro"], parent=self)
+            messagebox.showerror("Erro", resultado.get("erro", "Erro desconhecido"), parent=self)
             self.btn_salvar.configure(state="normal", text="Salvar e Registrar Check-list", fg_color="#d35400")
             return
         
         try:
             sistema_os = platform.system()
-            if sistema_os == "Windows": os.startfile(resultado["nome_imagem"])
-            elif sistema_os == "Darwin": subprocess.Popen(["open", resultado["nome_imagem"]])
-            else: subprocess.Popen(["xdg-open", resultado["nome_imagem"]])
+            caminho_imagem = resultado["nome_imagem"]
+            
+            if sistema_os == "Windows": 
+                os.startfile(caminho_imagem)
+            elif sistema_os == "Darwin": 
+                subprocess.Popen(["open", caminho_imagem])
+            else: 
+                subprocess.Popen(["xdg-open", caminho_imagem])
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir a imagem: {e}", parent=self)
 
         if resultado["alertas"]:
-            mensagem_final = f"Check-list '{resultado['nome_arquivo_txt']}' pronto!\n\nAlertas:\n\n" + "\n".join(resultado["alertas"])
+            mensagem_final = f"Check-list pronto!\n\nAlertas:\n\n" + "\n".join(resultado["alertas"])
             messagebox.showwarning("Atenção!", mensagem_final, parent=self)
         else:
             messagebox.showinfo("Sucesso", "Check-list perfeito! Nenhum item faltando.", parent=self)
+            
         self.destroy()

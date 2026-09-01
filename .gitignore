@@ -1,0 +1,26 @@
+# Cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Banco de Dados Local (Não suba dados reais/de teste para o repositório)
+materiais.db
+*.db
+*.sqlite3
+
+# Arquivos de Compilação/Empacotamento (PyInstaller)
+build/
+dist/
+*.spec
+
+# Ambientes Virtuais
+venv/
+.venv/
+env/
+.env
+
+# Configurações de IDE e SO (VS Code, Mac, Windows)
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
