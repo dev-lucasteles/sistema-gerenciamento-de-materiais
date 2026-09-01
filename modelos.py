@@ -1,33 +1,25 @@
-import sys
-from pathlib import Path
+from dataclasses import dataclass
+from typing import Optional
 
-# 1. DEFINIÇÃO DO DIRETÓRIO BASE
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path.home() / "Documents" / "Sistema_Materiais"
-else:
-    BASE_DIR = Path(__file__).resolve().parent
+@dataclass
+class Monitor:
+    id_monitor: int
+    nome: str
+    ativo: bool = True
 
-BASE_DIR.mkdir(parents=True, exist_ok=True)
+@dataclass
+class Material:
+    id_material: int
+    nome: str
+    quantidade: int
+    observacoes: Optional[str] = None
+    ativo: bool = True
 
-# 2. CAMINHO DO BANCO DE DADOS
-DB_PATH = BASE_DIR / 'materiais.db'
-
-# 3. IDENTIFICADOR DA ÁREA DE TRABALHO
-def _get_desktop_path() -> Path:
-    home = Path.home()
-    possiveis_caminhos = [
-        home / "OneDrive" / "Área de Trabalho",
-        home / "OneDrive" / "Desktop",
-        home / "Desktop",
-        home / "Área de Trabalho"
-    ]
-    for caminho in possiveis_caminhos:
-        if caminho.exists():
-            return caminho
-    return home / "Desktop" 
-
-DESKTOP_PATH = _get_desktop_path()
-
-# 4. DIRETÓRIOS DE EXPORTAÇÃO
-PASTA_RELATORIOS = DESKTOP_PATH / "Relatorios_TXT"
-PASTA_GRAFICOS = DESKTOP_PATH / "Graficos_Checklist"
+@dataclass
+class ItemChecklist:
+    id_material: int
+    nome_material: str
+    qtd_esperada: int
+    qtd_encontrada: int
+    observacao: str
+    quarto: str
