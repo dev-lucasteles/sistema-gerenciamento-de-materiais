@@ -15,14 +15,17 @@ class JanelaChecklist(ctk.CTkToplevel):
         self.servico_checklist = servicos["checklist"]
         
         self.title("Check-list Diário")
-        self.geometry("1050x700") 
+        
+        # Geometria ajustada para forçar a janela mais para cima
+        self._configurar_geometria_responsiva()
+        
         self.transient(master)
         self.grab_set()
         
         self.entradas_checklist = {}
         self.lista_entries = []
 
-        ctk.CTkLabel(self, text="📝 Check-list de Materiais", font=("Segoe UI", 22, "bold"), text_color="#e0e0e0").pack(pady=(25, 15))
+        ctk.CTkLabel(self, text="📝 Check-list de Materiais", font=("Segoe UI", 22, "bold"), text_color="#e0e0e0").pack(pady=(15, 5))
 
         if not self._configurar_monitor_responsavel():
             return
@@ -33,8 +36,28 @@ class JanelaChecklist(ctk.CTkToplevel):
 
         self.btn_salvar = ctk.CTkButton(self, text="Salvar e Registrar Check-list", command=self.iniciar_salvamento, 
                                         fg_color="#d35400", hover_color="#e67e22", text_color="white",
-                                        font=("Segoe UI", 14, "bold"), height=45, corner_radius=8)
-        self.btn_salvar.pack(pady=20)
+                                        font=("Segoe UI", 14, "bold"), height=40, corner_radius=8)
+        self.btn_salvar.pack(pady=10)
+
+    def _configurar_geometria_responsiva(self):
+        """Calcula o tamanho da tela e posiciona a janela mais acima (evitando que fique baixa demais)."""
+        largura_janela = 950
+        altura_janela = 650
+        
+        largura_tela = self.winfo_screenwidth()
+        altura_tela = self.winfo_screenheight()
+        
+        if largura_janela > largura_tela:
+            largura_janela = largura_tela - 50
+        if altura_janela > altura_tela:
+            altura_janela = altura_tela - 80
+            
+        pos_x = max(0, (largura_tela // 2) - (largura_janela // 2))
+        
+        # Posiciona a janela mais para o topo da tela (1/5 da altura total) em vez de centralizar verticalmente
+        pos_y = max(30, (altura_tela - altura_janela) // 5)
+        
+        self.geometry(f"{largura_janela}x{altura_janela}+{pos_x}+{pos_y}")
 
     def _configurar_monitor_responsavel(self):
         try:
@@ -52,7 +75,7 @@ class JanelaChecklist(ctk.CTkToplevel):
         lista_monitores = [f"{m.id_monitor} - {m.nome}" for m in monitores]
         
         frame_monitor = ctk.CTkFrame(self, fg_color="transparent")
-        frame_monitor.pack(pady=10)
+        frame_monitor.pack(pady=2)
         
         ctk.CTkLabel(frame_monitor, text="Monitor Responsável:", font=("Segoe UI", 12, "bold"), text_color="#e0e0e0").pack(side="left", padx=10)
         self.combo_monitor_resp = ctk.CTkComboBox(frame_monitor, values=lista_monitores, state="readonly", width=300)
@@ -62,24 +85,24 @@ class JanelaChecklist(ctk.CTkToplevel):
 
     def _configurar_cabecalho(self):
         self.frame_cabecalho = ctk.CTkFrame(self, fg_color="#1e1e1e", corner_radius=8)
-        self.frame_cabecalho.pack(fill="x", padx=30, pady=(15, 0))
+        self.frame_cabecalho.pack(fill="x", padx=20, pady=(5, 0))
         
         font_cab = ("Segoe UI", 12, "bold")
         cor_cab = "#3498db"
         
-        ctk.CTkLabel(self.frame_cabecalho, text="Material", font=font_cab, text_color=cor_cab).grid(row=0, column=0, padx=10, pady=12, sticky="w")
-        ctk.CTkLabel(self.frame_cabecalho, text="Esperado", font=font_cab, text_color=cor_cab).grid(row=0, column=1, padx=10, pady=12)
-        ctk.CTkLabel(self.frame_cabecalho, text="Encontrado", font=font_cab, text_color=cor_cab).grid(row=0, column=2, padx=10, pady=12)
-        ctk.CTkLabel(self.frame_cabecalho, text="Observação", font=font_cab, text_color=cor_cab).grid(row=0, column=3, padx=10, pady=12)
-        ctk.CTkLabel(self.frame_cabecalho, text="Quarto", font=font_cab, text_color=cor_cab).grid(row=0, column=4, padx=10, pady=12)
+        ctk.CTkLabel(self.frame_cabecalho, text="Material", font=font_cab, text_color=cor_cab).grid(row=0, column=0, padx=10, pady=8, sticky="w")
+        ctk.CTkLabel(self.frame_cabecalho, text="Esperado", font=font_cab, text_color=cor_cab).grid(row=0, column=1, padx=10, pady=8)
+        ctk.CTkLabel(self.frame_cabecalho, text="Encontrado", font=font_cab, text_color=cor_cab).grid(row=0, column=2, padx=10, pady=8)
+        ctk.CTkLabel(self.frame_cabecalho, text="Observação", font=font_cab, text_color=cor_cab).grid(row=0, column=3, padx=10, pady=8)
+        ctk.CTkLabel(self.frame_cabecalho, text="Quarto", font=font_cab, text_color=cor_cab).grid(row=0, column=4, padx=10, pady=8)
         
-        tamanhos = [350, 100, 120, 150, 100]
+        tamanhos = [320, 90, 110, 140, 90]
         for i, t in enumerate(tamanhos):
             self.frame_cabecalho.grid_columnconfigure(i, minsize=t)
 
     def _configurar_lista(self):
         self.frame_lista = ctk.CTkScrollableFrame(self, fg_color="transparent")
-        self.frame_lista.pack(fill="both", expand=True, padx=20, pady=(5, 10))
+        self.frame_lista.pack(fill="both", expand=True, padx=20, pady=(2, 2))
 
     def mover_foco(self, event, direcao, index):
         novo_index = index + direcao
@@ -107,22 +130,22 @@ class JanelaChecklist(ctk.CTkToplevel):
             bg_color = "#2a2a2a" if i % 2 == 0 else "#1e1e1e"
 
             frame_linha = ctk.CTkFrame(self.frame_lista, fg_color=bg_color, corner_radius=6)
-            frame_linha.pack(fill="x", pady=3, padx=5)
+            frame_linha.pack(fill="x", pady=2, padx=5)
 
-            ctk.CTkLabel(frame_linha, text=mat.nome, text_color="#e0e0e0").grid(row=0, column=0, padx=10, pady=8, sticky="w")
-            ctk.CTkLabel(frame_linha, text=str(mat.quantidade), text_color="#e0e0e0").grid(row=0, column=1, padx=10, pady=8)
+            ctk.CTkLabel(frame_linha, text=mat.nome, text_color="#e0e0e0").grid(row=0, column=0, padx=10, pady=5, sticky="w")
+            ctk.CTkLabel(frame_linha, text=str(mat.quantidade), text_color="#e0e0e0").grid(row=0, column=1, padx=10, pady=5)
 
-            entry_qtd = ctk.CTkEntry(frame_linha, width=80, justify="center")
-            entry_qtd.grid(row=0, column=2, padx=10, pady=8)
+            entry_qtd = ctk.CTkEntry(frame_linha, width=70, justify="center")
+            entry_qtd.grid(row=0, column=2, padx=10, pady=5)
 
-            combo_obs = ctk.CTkComboBox(frame_linha, values=["", "Pendente", "Danificado"], state="readonly", width=130)
+            combo_obs = ctk.CTkComboBox(frame_linha, values=["", "Pendente", "Danificado"], state="readonly", width=120)
             combo_obs.set("")
-            combo_obs.grid(row=0, column=3, padx=10, pady=8)
+            combo_obs.grid(row=0, column=3, padx=10, pady=5)
 
-            entry_quarto = ctk.CTkEntry(frame_linha, width=80, justify="center")
-            entry_quarto.grid(row=0, column=4, padx=10, pady=8)
+            entry_quarto = ctk.CTkEntry(frame_linha, width=70, justify="center")
+            entry_quarto.grid(row=0, column=4, padx=10, pady=5)
 
-            tamanhos = [350, 100, 120, 150, 100]
+            tamanhos = [320, 90, 110, 140, 90]
             for col, t in enumerate(tamanhos):
                 frame_linha.grid_columnconfigure(col, minsize=t)
 
